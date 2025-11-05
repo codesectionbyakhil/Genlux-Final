@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Conversation, Message, User } from '../types';
-import { geminiService } from '../services/geminiService';
+import { geminiService } from '../backend/geminiService';
 
 const getInitialConversations = (user: User | null): Conversation[] => {
     if (!user) return [];
