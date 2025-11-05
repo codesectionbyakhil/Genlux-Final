@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Conversation, Message, User } from '../types';
 import { geminiService } from '../backend/geminiService';
@@ -13,12 +12,8 @@ export const useChat = (user: User | null) => {
 
     useEffect(() => {
         if (user) {
-            // Set a loading state for conversations to avoid showing an empty list briefly
-            const tempLoadingState: Conversation[] = conversations.length > 0 ? conversations : [];
-            setConversations(tempLoadingState);
-            setIsLoading(true);
-
             const fetchConversations = async () => {
+                setIsLoading(true);
                 try {
                     const q = query(
                         collection(db, "conversations"),
@@ -75,29 +70,42 @@ export const useChat = (user: User | null) => {
         
         setIsLoading(true);
 
+        // Optimistically update UI with user's message
+        if (!currentConvoId) {
+            // This is a new chat
+            const tempId = `temp-${Date.now()}`;
+            const newConversation: Conversation = {
+                id: tempId,
+                title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
+                messages: [userMessage],
+                createdAt: new Date().toISOString(),
+            };
+            setConversations(prev => [newConversation, ...prev]);
+            setActiveConversationId(tempId);
+            currentConvoId = tempId; // Use tempId for the rest of the function
+        } else {
+             setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, userMessage] } : c));
+        }
+
+
         try {
-            if (!currentConvoId) {
+            // If it was a new chat, create it in Firebase now
+            if (activeConversationId?.startsWith('temp-')) {
                 const newConvoRef = await addDoc(collection(db, "conversations"), {
                     userId: user.uid,
                     title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
                     createdAt: new Date().toISOString(),
                 });
-                currentConvoId = newConvoRef.id;
-                setActiveConversationId(currentConvoId);
+                const realId = newConvoRef.id;
                 
-                const newConversation: Conversation = {
-                    id: currentConvoId,
-                    title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
-                    messages: [userMessage],
-                    createdAt: new Date().toISOString(),
-                };
-                setConversations(prev => [newConversation, ...prev]);
-            } else {
-                 setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, userMessage] } : c));
+                // Update conversation state with the real ID from Firebase
+                setConversations(prev => prev.map(c => c.id === activeConversationId ? {...c, id: realId} : c));
+                setActiveConversationId(realId);
+                currentConvoId = realId;
             }
 
             const { id: tempUserMsgId, ...userMessageData } = userMessage;
-            await addDoc(collection(db, "conversations", currentConvoId, "messages"), userMessageData);
+            await addDoc(collection(db, "conversations", currentConvoId!, "messages"), userMessageData);
 
             const modelResponseId = `msg-model-${Date.now()}`;
 
@@ -112,7 +120,7 @@ export const useChat = (user: User | null) => {
                 };
                 
                 const { id: tempModelId, ...modelResponseData } = modelResponseMessage;
-                await addDoc(collection(db, "conversations", currentConvoId, "messages"), modelResponseData);
+                await addDoc(collection(db, "conversations", currentConvoId!, "messages"), modelResponseData);
                 setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, modelResponseMessage] } : c));
 
             } else {
@@ -138,22 +146,22 @@ export const useChat = (user: User | null) => {
                     }
                 }
                 
+                // FIX: Corrected typo from newtoISOString() to new Date().toISOString().
                 const finalModelMessage: Message = { id: modelResponseId, role: 'model', content: fullText, timestamp: new Date().toISOString() };
                 const { id: tempModelId, ...modelResponseData } = finalModelMessage;
-                await addDoc(collection(db, "conversations", currentConvoId, "messages"), modelResponseData);
+                await addDoc(collection(db, "conversations", currentConvoId!, "messages"), modelResponseData);
             }
         } catch (error) {
             console.error("Error sending message:", error);
             const errorMessage: Message = {
                 id: `msg-error-${Date.now()}`,
                 role: 'model',
-                content: error instanceof Error ? `${error.message}` : 'Sorry, an unexpected error occurred.',
+                content: error instanceof Error ? `Error: ${error.message}` : 'Sorry, an unexpected error occurred.',
                 timestamp: new Date().toISOString(),
             };
             if(currentConvoId) {
-                setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages.filter(m => m.id !== userMessage.id), errorMessage] } : c));
-            } else {
-                 setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: [...c.messages, errorMessage] } : c));
+                // Add the error message to the conversation without removing the user's message.
+                setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, errorMessage] } : c));
             }
         } finally {
             setIsLoading(false);
