@@ -1,0 +1,5 @@
+{
+  "name": "Genlux AI",
+  "description": "A responsive AI chat application with features like text summarization, image generation, data analysis, and more, powered by the Gemini API. It includes a modern, ChatGPT-like interface with chat history and a clean dashboard.",
+  "requestFramePermissions": []
+}
