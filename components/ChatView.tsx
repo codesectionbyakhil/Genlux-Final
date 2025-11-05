@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { Conversation, Message } from '../types';
 
@@ -12,15 +11,20 @@ interface ChatViewProps {
 const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
   const isUser = message.role === 'user';
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-xl px-4 py-3 rounded-2xl ${isUser ? 'bg-purple-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
-        {message.image ? (
-            <img src={message.image} alt="Generated content" className="rounded-lg max-w-xs" />
-        ) : (
-            <p className="text-base whitespace-pre-wrap">{message.content}</p>
-        )}
-        <p className="text-xs mt-2 opacity-50 text-right">{new Date(message.timestamp).toLocaleTimeString()}</p>
-      </div>
+    // The main container for a message and its timestamp
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+        {/* The message bubble */}
+        <div className={`max-w-xl px-4 py-3 rounded-2xl ${isUser ? 'bg-purple-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
+            {message.image ? (
+                <img src={message.image} alt="Generated content" className="rounded-lg max-w-xs" />
+            ) : (
+                <p className="text-base whitespace-pre-wrap">{message.content}</p>
+            )}
+        </div>
+        {/* The timestamp below the bubble */}
+        <p className="text-xs mt-1 text-gray-400 px-1">
+            {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+        </p>
     </div>
   );
 };
@@ -61,7 +65,7 @@ export default function ChatView({ conversation, onSendMessage, isLoading }: Cha
           <MessageBubble key={msg.id} message={msg} />
         ))}
         {isLoading && (
-          <div className="flex justify-start mb-4">
+          <div className="flex justify-start">
             <div className="max-w-xl px-4 py-3 rounded-2xl bg-gray-700 text-gray-200 rounded-bl-none flex items-center space-x-2">
               <span className="h-2 w-2 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span className="h-2 w-2 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
