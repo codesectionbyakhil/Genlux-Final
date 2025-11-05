@@ -1,22 +1,21 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { Message } from '../types';
 
-// IMPORTANT: The API key must be set in the environment variables.
-// Do not expose the API key in the client-side code in a real production app.
-// This is for demonstration purposes only.
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-    throw new Error("API_KEY is not set in environment variables.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Lazily creates the AI client to avoid crashing the app if the API key is missing on load.
+// An error will be thrown during the API call instead, which can be caught by the UI.
+const getAiClient = () => {
+    const API_KEY = process.env.API_KEY;
+    if (!API_KEY) {
+        throw new Error("API_KEY is not set. Please configure your environment variables.");
+    }
+    return new GoogleGenAI({ apiKey: API_KEY });
+};
 
 const textModel = 'gemini-2.5-flash';
 const imageModel = 'imagen-4.0-generate-001';
 
 async function* generateTextStream(history: Message[], newMessage: string): AsyncGenerator<string> {
+  const ai = getAiClient();
   const chat = ai.chats.create({
     model: textModel,
     history: history.map(msg => ({
@@ -33,6 +32,7 @@ async function* generateTextStream(history: Message[], newMessage: string): Asyn
 }
 
 async function generateImage(prompt: string): Promise<string> {
+    const ai = getAiClient();
     const response = await ai.models.generateImages({
         model: imageModel,
         prompt: prompt,

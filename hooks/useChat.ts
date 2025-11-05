@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Conversation, Message, User } from '../types';
 import { geminiService } from '../services/geminiService';
@@ -68,6 +67,7 @@ export const useChat = (user: User | null) => {
         }
 
         setIsLoading(true);
+        let modelResponseId: string | null = null;
 
         try {
             if (content.toLowerCase().startsWith('/imagine')) {
@@ -78,6 +78,7 @@ export const useChat = (user: User | null) => {
                     image: '',
                     timestamp: new Date().toISOString(),
                 };
+                modelResponseId = modelResponse.id;
 
                 setConversations(prev => prev.map(c => c.id === currentConvo!.id ? { ...c, messages: [...c.messages, modelResponse] } : c));
                 
@@ -93,6 +94,7 @@ export const useChat = (user: User | null) => {
                     content: '',
                     timestamp: new Date().toISOString(),
                 };
+                modelResponseId = modelResponse.id;
 
                 setConversations(prev => prev.map(c => c.id === currentConvo!.id ? { ...c, messages: [...c.messages, modelResponse] } : c));
 
@@ -111,13 +113,29 @@ export const useChat = (user: User | null) => {
             }
         } catch (error) {
             console.error("Error communicating with Gemini API:", error);
-            const errorMessage: Message = {
-                id: `msg-error-${Date.now()}`,
-                role: 'model',
-                content: 'Sorry, I encountered an error. Please try again.',
-                timestamp: new Date().toISOString(),
-            };
-            setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, messages: [...c.messages, errorMessage] } : c));
+            const errorMessageText = error instanceof Error ? `Error: ${error.message}` : 'Sorry, I encountered an unknown error. Please try again.';
+            
+            setConversations(prev => prev.map(c => {
+                if (c.id === currentConvo!.id) {
+                    if (modelResponseId) {
+                        // Replace the placeholder with an error message
+                        const newMessages = c.messages.map(m => 
+                            m.id === modelResponseId ? { ...m, content: errorMessageText, image: undefined } : m
+                        );
+                        return { ...c, messages: newMessages };
+                    } else {
+                        // Fallback: If no placeholder, just add the error message
+                        const errorMessage: Message = {
+                            id: `msg-error-${Date.now()}`,
+                            role: 'model',
+                            content: errorMessageText,
+                            timestamp: new Date().toISOString(),
+                        };
+                        return { ...c, messages: [...c.messages, errorMessage] };
+                    }
+                }
+                return c;
+            }));
         } finally {
             setIsLoading(false);
         }
