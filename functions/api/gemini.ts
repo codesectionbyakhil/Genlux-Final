@@ -6,13 +6,21 @@ const imageModel = 'imagen-4.0-generate-001';
 export const onRequestPost = async (context) => {
     try {
         const { request, env } = context;
-        const body = await request.json();
-        const { type } = body;
 
         const API_KEY = env.API_KEY;
         if (!API_KEY) {
-            throw new Error("API_KEY environment variable not set on the server.");
+            // FIX: Return a specific, user-friendly error message when the API key is not configured on the server.
+            // This provides clearer instructions to the user/developer for resolving the issue.
+            const errorMessage = "API_KEY is not set. Please configure your environment variables in your deployment settings.";
+            return new Response(JSON.stringify({ message: errorMessage }), { 
+                status: 400, 
+                headers: { 'Content-Type': 'application/json' } 
+            });
         }
+        
+        const body = await request.json();
+        const { type } = body;
+
         const ai = new GoogleGenAI({ apiKey: API_KEY });
 
         if (type === 'text') {

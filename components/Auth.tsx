@@ -1,6 +1,9 @@
 
 import React, { useState, FormEvent } from 'react';
-import { AuthError } from 'firebase/auth';
+// FIX: Import firebase compat to use types like firebase.auth.AuthError.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+
 
 interface AuthProps {
   onLogin: (email: string, pass: string) => Promise<void>;
@@ -8,7 +11,8 @@ interface AuthProps {
   onResetPassword: (email: string) => Promise<void>;
 }
 
-const getErrorMessage = (error: AuthError): string => {
+// FIX: Changed AuthError type to firebase.auth.AuthError for Firebase v8 compat.
+const getErrorMessage = (error: firebase.auth.AuthError): string => {
     switch (error.code) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
@@ -59,7 +63,8 @@ export default function Auth({ onLogin, onSignup, onResetPassword }: AuthProps):
         await onSignup(name, email, password);
       }
     } catch (err) {
-      setError(getErrorMessage(err as AuthError));
+      // FIX: Cast error to firebase.auth.AuthError for Firebase v8 compat.
+      setError(getErrorMessage(err as firebase.auth.AuthError));
     }
   };
 

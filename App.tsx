@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ChatView from './components/ChatView';
 import PricingModal from './components/PricingModal';
+import ApiKeyErrorModal from './components/ApiKeyErrorModal';
 import { useAuth } from './hooks/useAuth';
 import { useChat } from './hooks/useChat';
 
@@ -17,6 +18,8 @@ export default function App(): React.JSX.Element {
     startNewChat,
     setActiveConversationId,
     isLoading,
+    isApiKeyMissing,
+    clearApiKeyMissingError,
   } = useChat(user);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -36,6 +39,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100 font-sans">
+      <ApiKeyErrorModal isOpen={isApiKeyMissing} onClose={clearApiKeyMissingError} />
       <PricingModal isOpen={isPricingModalOpen} onClose={() => setIsPricingModalOpen(false)} />
       <Sidebar
         user={user}

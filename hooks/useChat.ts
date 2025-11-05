@@ -1,34 +1,37 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Conversation, Message, User } from '../types';
 import { geminiService } from '../backend/geminiService';
 import { db } from '../backend/firebase';
-import { collection, addDoc, query, where, orderBy, getDocs } from 'firebase/firestore';
+// FIX: Removed modular Firestore imports as the logic is being switched to the v8 compat API.
+// import { collection, addDoc, query, where, orderBy, getDocs } from 'firebase/firestore';
 
 
 export const useChat = (user: User | null) => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
 
     useEffect(() => {
         if (user) {
             const fetchConversations = async () => {
                 setIsLoading(true);
                 try {
-                    const q = query(
-                        collection(db, "conversations"),
-                        where("userId", "==", user.uid),
-                        orderBy("createdAt", "desc")
-                    );
-                    const querySnapshot = await getDocs(q);
+                    // FIX: Switched to v8 compat API for querying collections.
+                    const q = db.collection("conversations")
+                        .where("userId", "==", user.uid)
+                        .orderBy("createdAt", "desc");
+                    
+                    const querySnapshot = await q.get();
                     const convos: Conversation[] = [];
                     for (const doc of querySnapshot.docs) {
                         const convoData = doc.data();
-                        const messagesQuery = query(
-                            collection(db, "conversations", doc.id, "messages"),
-                            orderBy("timestamp", "asc")
-                        );
-                        const messagesSnapshot = await getDocs(messagesQuery);
+                        // FIX: Switched to v8 compat API for querying sub-collections.
+                        const messagesQuery = db.collection("conversations").doc(doc.id).collection("messages")
+                            .orderBy("timestamp", "asc");
+                        
+                        const messagesSnapshot = await messagesQuery.get();
                         const messages = messagesSnapshot.docs.map(msgDoc => ({ id: msgDoc.id, ...msgDoc.data() } as Message));
                         
                         convos.push({
@@ -55,6 +58,8 @@ export const useChat = (user: User | null) => {
     const startNewChat = useCallback(() => {
         setActiveConversationId(null);
     }, []);
+    
+    const clearApiKeyMissingError = useCallback(() => setIsApiKeyMissing(false), []);
 
     const sendMessage = useCallback(async (content: string) => {
         if (!user) return;
@@ -72,7 +77,6 @@ export const useChat = (user: User | null) => {
 
         // Optimistically update UI with user's message
         if (!currentConvoId) {
-            // This is a new chat
             const tempId = `temp-${Date.now()}`;
             const newConversation: Conversation = {
                 id: tempId,
@@ -82,30 +86,30 @@ export const useChat = (user: User | null) => {
             };
             setConversations(prev => [newConversation, ...prev]);
             setActiveConversationId(tempId);
-            currentConvoId = tempId; // Use tempId for the rest of the function
+            currentConvoId = tempId;
         } else {
              setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, userMessage] } : c));
         }
 
 
         try {
-            // If it was a new chat, create it in Firebase now
             if (activeConversationId?.startsWith('temp-')) {
-                const newConvoRef = await addDoc(collection(db, "conversations"), {
+                // FIX: Switched to v8 compat API for adding a document.
+                const newConvoRef = await db.collection("conversations").add({
                     userId: user.uid,
                     title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
                     createdAt: new Date().toISOString(),
                 });
                 const realId = newConvoRef.id;
                 
-                // Update conversation state with the real ID from Firebase
                 setConversations(prev => prev.map(c => c.id === activeConversationId ? {...c, id: realId} : c));
                 setActiveConversationId(realId);
                 currentConvoId = realId;
             }
 
             const { id: tempUserMsgId, ...userMessageData } = userMessage;
-            await addDoc(collection(db, "conversations", currentConvoId!, "messages"), userMessageData);
+            // FIX: Switched to v8 compat API for adding a document to a sub-collection.
+            await db.collection("conversations").doc(currentConvoId!).collection("messages").add(userMessageData);
 
             const modelResponseId = `msg-model-${Date.now()}`;
 
@@ -120,7 +124,8 @@ export const useChat = (user: User | null) => {
                 };
                 
                 const { id: tempModelId, ...modelResponseData } = modelResponseMessage;
-                await addDoc(collection(db, "conversations", currentConvoId!, "messages"), modelResponseData);
+                // FIX: Switched to v8 compat API for adding a document to a sub-collection.
+                await db.collection("conversations").doc(currentConvoId!).collection("messages").add(modelResponseData);
                 setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, modelResponseMessage] } : c));
 
             } else {
@@ -146,22 +151,44 @@ export const useChat = (user: User | null) => {
                     }
                 }
                 
-                // FIX: Corrected typo from newtoISOString() to new Date().toISOString().
                 const finalModelMessage: Message = { id: modelResponseId, role: 'model', content: fullText, timestamp: new Date().toISOString() };
                 const { id: tempModelId, ...modelResponseData } = finalModelMessage;
-                await addDoc(collection(db, "conversations", currentConvoId!, "messages"), modelResponseData);
+                // FIX: Switched to v8 compat API for adding a document to a sub-collection.
+                await db.collection("conversations").doc(currentConvoId!).collection("messages").add(modelResponseData);
             }
         } catch (error) {
             console.error("Error sending message:", error);
-            const errorMessage: Message = {
-                id: `msg-error-${Date.now()}`,
-                role: 'model',
-                content: error instanceof Error ? `Error: ${error.message}` : 'Sorry, an unexpected error occurred.',
-                timestamp: new Date().toISOString(),
-            };
-            if(currentConvoId) {
-                // Add the error message to the conversation without removing the user's message.
-                setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, errorMessage] } : c));
+            const isApiKeyError = error instanceof Error && error.message.includes("API_KEY is not set");
+
+            // Revert the optimistic user message on any error.
+            if (activeConversationId?.startsWith('temp-')) {
+                setConversations(prev => prev.filter(c => c.id !== activeConversationId));
+                setActiveConversationId(null);
+            } else if (currentConvoId) {
+                setConversations(prev => prev.map(c => 
+                    c.id === currentConvoId 
+                    ? { ...c, messages: c.messages.slice(0, -1) } 
+                    : c
+                ));
+            }
+
+            if (isApiKeyError) {
+                setIsApiKeyMissing(true);
+            } else {
+                // For other errors, add an error bubble to existing conversations AFTER reverting.
+                if (currentConvoId && !currentConvoId.startsWith('temp-')) {
+                    const errorMessage: Message = {
+                        id: `msg-error-${Date.now()}`,
+                        role: 'model',
+                        content: error instanceof Error ? `Error: ${error.message}` : 'Sorry, an unexpected error occurred.',
+                        timestamp: new Date().toISOString(),
+                    };
+                    setConversations(prev => prev.map(c => 
+                        c.id === currentConvoId 
+                        ? { ...c, messages: [...c.messages, errorMessage] } 
+                        : c
+                    ));
+                }
             }
         } finally {
             setIsLoading(false);
@@ -177,5 +204,7 @@ export const useChat = (user: User | null) => {
         startNewChat,
         setActiveConversationId,
         isLoading,
+        isApiKeyMissing,
+        clearApiKeyMissingError,
     };
 };
