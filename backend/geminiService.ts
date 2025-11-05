@@ -1,55 +1,65 @@
-import { GoogleGenAI } from "@google/genai";
 import { Message } from '../types';
 
-// This file acts as a service layer for interacting with the Google Gemini API.
-// IMPORTANT: The API key is sourced from environment variables for security.
-// It should be set in your deployment environment (e.g., Cloudflare Pages settings).
-const getAiClient = () => {
-    const API_KEY = process.env.API_KEY;
-    if (!API_KEY) {
-        throw new Error("API_KEY is not set. Please configure your environment variables in your deployment settings.");
-    }
-    return new GoogleGenAI({ apiKey: API_KEY });
-};
-
-const textModel = 'gemini-2.5-flash';
-const imageModel = 'imagen-4.0-generate-001';
+// This file acts as a client-side layer to communicate with our secure backend function.
+// It sends requests to `/api/gemini` and handles the responses.
 
 async function* generateTextStream(history: Message[], newMessage: string): AsyncGenerator<string> {
-  const ai = getAiClient();
-  const chat = ai.chats.create({
-    model: textModel,
-    history: history.map(msg => ({
-      role: msg.role,
-      parts: [{ text: msg.content }],
-    })),
-  });
+    const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            type: 'text',
+            history,
+            newMessage,
+        }),
+    });
 
-  const result = await chat.sendMessageStream({ message: newMessage });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to generate text and parse error response.' }));
+        throw new Error(errorData.message || 'An unknown error occurred during text generation.');
+    }
+    
+    if (!response.body) {
+        throw new Error("Response from server contained no body.");
+    }
 
-  for await (const chunk of result) {
-    yield chunk.text;
-  }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            break;
+        }
+        yield decoder.decode(value, { stream: true });
+    }
 }
 
 async function generateImage(prompt: string): Promise<string> {
-    const ai = getAiClient();
-    const response = await ai.models.generateImages({
-        model: imageModel,
-        prompt: prompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: 'image/jpeg',
-          aspectRatio: '1:1',
+    const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+            type: 'image',
+            prompt,
+        }),
     });
 
-    if (response.generatedImages && response.generatedImages.length > 0) {
-        const base64ImageBytes = response.generatedImages[0].image.imageBytes;
-        return `data:image/jpeg;base64,${base64ImageBytes}`;
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to generate image and parse error response.' }));
+        throw new Error(errorData.message || 'An unknown error occurred during image generation.');
     }
     
-    throw new Error('Image generation failed.');
+    const data = await response.json();
+    if (!data.imageUrl) {
+        throw new Error('Backend did not return an image URL.');
+    }
+    
+    return data.imageUrl;
 }
 
 export const geminiService = {
