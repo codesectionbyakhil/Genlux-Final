@@ -1,6 +1,4 @@
-
 import React, { useState, FormEvent } from 'react';
-// FIX: Import firebase compat to use types like firebase.auth.AuthError.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 
@@ -11,7 +9,6 @@ interface AuthProps {
   onResetPassword: (email: string) => Promise<void>;
 }
 
-// FIX: Changed AuthError type to firebase.auth.AuthError for Firebase v8 compat.
 const getErrorMessage = (error: firebase.auth.AuthError): string => {
     switch (error.code) {
         case 'auth/user-not-found':
@@ -63,7 +60,6 @@ export default function Auth({ onLogin, onSignup, onResetPassword }: AuthProps):
         await onSignup(name, email, password);
       }
     } catch (err) {
-      // FIX: Cast error to firebase.auth.AuthError for Firebase v8 compat.
       setError(getErrorMessage(err as firebase.auth.AuthError));
     }
   };

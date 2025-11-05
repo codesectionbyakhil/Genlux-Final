@@ -1,11 +1,7 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Conversation, Message, User } from '../types';
 import { geminiService } from '../backend/geminiService';
 import { db } from '../backend/firebase';
-// FIX: Removed modular Firestore imports as the logic is being switched to the v8 compat API.
-// import { collection, addDoc, query, where, orderBy, getDocs } from 'firebase/firestore';
-
 
 export const useChat = (user: User | null) => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -18,7 +14,6 @@ export const useChat = (user: User | null) => {
             const fetchConversations = async () => {
                 setIsLoading(true);
                 try {
-                    // FIX: Switched to v8 compat API for querying collections.
                     const q = db.collection("conversations")
                         .where("userId", "==", user.uid)
                         .orderBy("createdAt", "desc");
@@ -27,7 +22,6 @@ export const useChat = (user: User | null) => {
                     const convos: Conversation[] = [];
                     for (const doc of querySnapshot.docs) {
                         const convoData = doc.data();
-                        // FIX: Switched to v8 compat API for querying sub-collections.
                         const messagesQuery = db.collection("conversations").doc(doc.id).collection("messages")
                             .orderBy("timestamp", "asc");
                         
@@ -94,7 +88,6 @@ export const useChat = (user: User | null) => {
 
         try {
             if (activeConversationId?.startsWith('temp-')) {
-                // FIX: Switched to v8 compat API for adding a document.
                 const newConvoRef = await db.collection("conversations").add({
                     userId: user.uid,
                     title: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
@@ -108,7 +101,6 @@ export const useChat = (user: User | null) => {
             }
 
             const { id: tempUserMsgId, ...userMessageData } = userMessage;
-            // FIX: Switched to v8 compat API for adding a document to a sub-collection.
             await db.collection("conversations").doc(currentConvoId!).collection("messages").add(userMessageData);
 
             const modelResponseId = `msg-model-${Date.now()}`;
@@ -124,7 +116,6 @@ export const useChat = (user: User | null) => {
                 };
                 
                 const { id: tempModelId, ...modelResponseData } = modelResponseMessage;
-                // FIX: Switched to v8 compat API for adding a document to a sub-collection.
                 await db.collection("conversations").doc(currentConvoId!).collection("messages").add(modelResponseData);
                 setConversations(prev => prev.map(c => c.id === currentConvoId ? { ...c, messages: [...c.messages, modelResponseMessage] } : c));
 
@@ -153,7 +144,6 @@ export const useChat = (user: User | null) => {
                 
                 const finalModelMessage: Message = { id: modelResponseId, role: 'model', content: fullText, timestamp: new Date().toISOString() };
                 const { id: tempModelId, ...modelResponseData } = finalModelMessage;
-                // FIX: Switched to v8 compat API for adding a document to a sub-collection.
                 await db.collection("conversations").doc(currentConvoId!).collection("messages").add(modelResponseData);
             }
         } catch (error) {

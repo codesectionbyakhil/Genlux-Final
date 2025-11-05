@@ -1,6 +1,3 @@
-
-// Import the functions you need from the SDKs you need
-// FIX: Switched to Firebase v8 compatibility imports to resolve module export errors.
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore";
@@ -16,11 +13,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-// FIX: Switched to v8 compat initialization style.
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// FIX: Export v8 compat instances of auth and firestore.
 export const auth = firebase.auth();
 export const db = firebase.firestore();

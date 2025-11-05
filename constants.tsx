@@ -5,7 +5,6 @@ const IconWrapper = ({ children }: { children: React.ReactNode }) => (
   <div className="p-2 bg-white/10 rounded-lg mb-3">{children}</div>
 );
 
-// FIX: Refactored icon function components into constant JSX elements to resolve a TypeScript error where the 'children' prop was unexpectedly reported as missing.
 const CreateImageIcon = <IconWrapper><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></IconWrapper>;
 const SummarizeTextIcon = <IconWrapper><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></IconWrapper>;
 const AnalyzeDataIcon = <IconWrapper><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg></IconWrapper>;
@@ -19,7 +18,6 @@ const AdviceIcon = <IconWrapper><svg xmlns="http://www.w3.org/2000/svg" classNam
 
 
 export const DASHBOARD_ACTIONS = [
-  // FIX: Updated to reference the new icon constants directly instead of instantiating them as components.
   { title: "Create image", prompt: "/imagine a photorealistic image of a futuristic city at sunset", icon: CreateImageIcon },
   { title: "Summarize text", prompt: "Summarize the following text for me: ", icon: SummarizeTextIcon },
   { title: "Analyze data", prompt: "Analyze this data and provide key insights: ", icon: AnalyzeDataIcon },

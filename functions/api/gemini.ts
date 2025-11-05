@@ -9,8 +9,6 @@ export const onRequestPost = async (context) => {
 
         const API_KEY = env.API_KEY;
         if (!API_KEY) {
-            // FIX: Return a specific, user-friendly error message when the API key is not configured on the server.
-            // This provides clearer instructions to the user/developer for resolving the issue.
             const errorMessage = "API_KEY is not set. Please configure your environment variables in your deployment settings.";
             return new Response(JSON.stringify({ message: errorMessage }), { 
                 status: 400, 
