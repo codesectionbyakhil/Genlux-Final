@@ -1,7 +1,8 @@
 
 export interface User {
-  name: string;
-  email: string;
+  uid: string;
+  name: string | null;
+  email: string | null;
 }
 
 export interface Message {

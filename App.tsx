@@ -9,7 +9,7 @@ import { useAuth } from './hooks/useAuth';
 import { useChat } from './hooks/useChat';
 
 export default function App(): React.JSX.Element {
-  const { user, login, signup, logout } = useAuth();
+  const { user, login, signup, logout, resetPassword } = useAuth();
   const {
     conversations,
     activeConversation,
@@ -22,8 +22,16 @@ export default function App(): React.JSX.Element {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   
+  if (user === undefined) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center bg-gray-900">
+            <h1 className="text-3xl font-bold text-purple-400">Genlux AI</h1>
+        </div>
+    );
+  }
+
   if (!user) {
-    return <Auth onLogin={login} onSignup={signup} />;
+    return <Auth onLogin={login} onSignup={signup} onResetPassword={resetPassword} />;
   }
 
   return (

@@ -1,57 +1,58 @@
 
 import { useState, useEffect } from 'react';
 import { User } from '../types';
-
-const USERS_KEY = 'genlux_ai_users';
-const CURRENT_USER_KEY = 'genlux_ai_current_user';
+import { auth } from '../backend/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  sendPasswordResetEmail,
+  User as FirebaseUser
+} from 'firebase/auth';
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null | undefined>(undefined);
 
   useEffect(() => {
-    // Check for a logged-in user on initial load
-    const storedUserEmail = localStorage.getItem(CURRENT_USER_KEY);
-    if (storedUserEmail) {
-      const users: User[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-      const loggedInUser = users.find(u => u.email === storedUserEmail);
-      if (loggedInUser) {
-        setUser(loggedInUser);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        setUser({
+            uid: firebaseUser.uid,
+            name: firebaseUser.displayName,
+            email: firebaseUser.email,
+        });
+      } else {
+        setUser(null);
       }
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, pass: string): Promise<boolean> => {
-    // NOTE: This is a mock authentication system. Passwords are not hashed.
-    // In a real application, never store plain text passwords.
-    const users: User[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-    // Mock password check. In a real app, this would be a hash comparison.
-    // For this demo, we'll just find the user by email. We assume passwords are correct if user exists.
-    const foundUser = users.find(u => u.email === email);
-    if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem(CURRENT_USER_KEY, foundUser.email);
-      return true;
-    }
-    return false;
+  const login = async (email: string, pass: string): Promise<void> => {
+    await signInWithEmailAndPassword(auth, email, pass);
   };
 
-  const signup = async (name: string, email: string, pass: string): Promise<boolean> => {
-    const users: User[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-    if (users.some(u => u.email === email)) {
-      return false; // User already exists
-    }
-    const newUser: User = { name, email };
-    const newUsers = [...users, newUser];
-    localStorage.setItem(USERS_KEY, JSON.stringify(newUsers));
-    setUser(newUser);
-    localStorage.setItem(CURRENT_USER_KEY, newUser.email);
-    return true;
+  const signup = async (name: string, email: string, pass: string): Promise<void> => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(userCredential.user, { displayName: name });
+    // Manually set user state after profile update to reflect name immediately
+    setUser({
+        uid: userCredential.user.uid,
+        name: name,
+        email: userCredential.user.email,
+    });
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem(CURRENT_USER_KEY);
+  const logout = async (): Promise<void> => {
+    await signOut(auth);
   };
 
-  return { user, login, signup, logout };
+  const resetPassword = async (email: string): Promise<void> => {
+    await sendPasswordResetEmail(auth, email);
+  }
+
+  return { user, login, signup, logout, resetPassword };
 };

@@ -1,12 +1,30 @@
 
 import React, { useState, FormEvent } from 'react';
+import { AuthError } from 'firebase/auth';
 
 interface AuthProps {
-  onLogin: (email: string, pass: string) => Promise<boolean>;
-  onSignup: (name: string, email: string, pass: string) => Promise<boolean>;
+  onLogin: (email: string, pass: string) => Promise<void>;
+  onSignup: (name: string, email: string, pass: string) => Promise<void>;
+  onResetPassword: (email: string) => Promise<void>;
 }
 
-export default function Auth({ onLogin, onSignup }: AuthProps): React.JSX.Element {
+const getErrorMessage = (error: AuthError): string => {
+    switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+            return 'Invalid email or password.';
+        case 'auth/email-already-in-use':
+            return 'An account with this email already exists.';
+        case 'auth/weak-password':
+            return 'Password should be at least 6 characters.';
+        case 'auth/invalid-email':
+            return 'Please enter a valid email address.';
+        default:
+            return 'An unexpected error occurred. Please try again.';
+    }
+}
+
+export default function Auth({ onLogin, onSignup, onResetPassword }: AuthProps): React.JSX.Element {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,24 +38,28 @@ export default function Auth({ onLogin, onSignup }: AuthProps): React.JSX.Elemen
     setError('');
     setMessage('');
 
-    if(isForgotPassword) {
-      // In a real app, this would trigger a password reset email
-      setMessage('If an account exists for this email, a reset link has been sent.');
-      setEmail('');
-      return;
-    }
-
-    let success = false;
-    if (isLogin) {
-      success = await onLogin(email, password);
-      if (!success) setError('Invalid email or password.');
-    } else {
-      if (name.trim() === '' || email.trim() === '' || password.trim() === '') {
-        setError('All fields are required.');
+    try {
+      if (isForgotPassword) {
+        if (!email) {
+          setError('Please enter your email address.');
+          return;
+        }
+        await onResetPassword(email);
+        setMessage('If an account exists, a password reset link has been sent to your email.');
         return;
       }
-      success = await onSignup(name, email, password);
-      if (!success) setError('An account with this email already exists.');
+
+      if (isLogin) {
+        await onLogin(email, password);
+      } else {
+        if (name.trim() === '' || email.trim() === '' || password.trim() === '') {
+          setError('All fields are required.');
+          return;
+        }
+        await onSignup(name, email, password);
+      }
+    } catch (err) {
+      setError(getErrorMessage(err as AuthError));
     }
   };
 
